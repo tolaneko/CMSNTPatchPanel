@@ -17,14 +17,14 @@ if (file_exists('config.php')) {
 } else {
     $flag_load_config = false;
 }
-
+$default_project = "UNSUPPORTED_PROJECT"; // Default project if config.php is not found
 // Master map of function names to their Gist URLs
 // This map stores the actual Gist URLs for each function.
 const FUNCTION_GIST_MAP = [
-    'checkAddonLicense' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/checkAddonLicense.php',
-    'CMSNT_check_license' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/CMSNT_check_license.php',
-    'checkAddon' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/checkAddon.php',
-    'feature_enabled' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/feature_enabled.php',
+    'checkAddonLicense' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/checkAddonLicense.php',
+    'CMSNT_check_license' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/CMSNT_check_license.php',
+    'checkAddon' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/checkAddon.php',
+    'feature_enabled' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/feature_enabled.php',
     // Add other function Gist URLs here as needed
 ];
 
@@ -83,12 +83,12 @@ if (!$flag_load_config) {
     // If config.php doesn't exist, try to guess the project based on file paths
     if(file_exists($projects_config['SHOPNICK3']['path'])) {
         $default_project = 'SHOPNICK3';
-    } else {
+    } else if(file_exists($projects_config['SMMPANELV1']['path'])) {
         $default_project = 'SMMPANELV1';
     }
 } else {
     // If config.php exists, use the project defined there, with a fallback
-    $default_project = $config['project'] ?? 'SMMPANELV1';
+    $default_project = $config['project'] ?? 'UNSUPPORTED_PROJECT';
 }
 
 // API logic to fetch all versions and output JSON
@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json'); // Set content type to JSON for POST responses
 
     // Get the project name directly from the determined default project
-    $project_to_update = $default_project ?? '';
+    $project_to_update = $_POST['project'] ?? $default_project;
 
     // Validate the project against the defined projects configuration
     if (!isset($projects_config[$project_to_update])) {
@@ -331,13 +331,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         /* Styling for the fetched Markdown content container */
         #additionalInfoContent {
-            text-align: left; /* Align content to the left */
-            background-color: #f0f4f8; /* Light blue-gray background to stand out */
-            padding: 1.5rem; /* Add padding inside the box */
-            border-radius: 0.75rem; /* Rounded corners */
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08); /* Subtle shadow */
-            border: 1px solid #d1d5db; /* Light border */
-            line-height: 1.6; /* Improve readability */
+            text-align: left;
+            background-color: #f0f4f8;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+            border: 1px solid #d1d5db;
+            line-height: 1.6;
         }
         /* Basic Markdown styling for fetched content */
         #additionalInfoContent h1, #additionalInfoContent h2, #additionalInfoContent h3 {
@@ -346,16 +346,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: 0.5em;
             color: #374151;
         }
-        #additionalInfoContent h1 { font-size: 1.875rem; } /* text-3xl */
-        #additionalInfoContent h2 { font-size: 1.5rem; }    /* text-2xl */
-        #additionalInfoContent h3 { font-size: 1.25rem; }   /* text-xl */
+        #additionalInfoContent h1 { font-size: 1.875rem; }
+        #additionalInfoContent h2 { font-size: 1.5rem; }
+        #additionalInfoContent h3 { font-size: 1.25rem; }
         #additionalInfoContent p {
             margin-bottom: 1em;
             line-height: 1.5;
         }
         #additionalInfoContent ul, #additionalInfoContent ol {
-            list-style-position: outside; /* Changed to outside for better alignment with text */
-            margin-left: 2.5em; /* Increased margin for list items */
+            list-style-position: outside;
+            margin-left: 2.5em;
             margin-bottom: 1em;
         }
         #additionalInfoContent ul { list-style-type: disc; }
@@ -367,7 +367,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         #additionalInfoContent strong { font-weight: 700; }
         #additionalInfoContent em { font-style: italic; }
         #additionalInfoContent pre {
-            background-color: #e2e8f0; /* bg-gray-200 */
+            background-color: #e2e8f0;
             padding: 1em;
             border-radius: 0.5rem;
             overflow-x: auto;
@@ -378,6 +378,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-color: #e2e8f0;
             padding: 0.2em 0.4em;
             border-radius: 0.25rem;
+        }
+        /* Spinner Styling */
+        .spinner {
+            border: 4px solid rgba(79, 70, 229, 0.2); /* Light purple border */
+            border-top: 4px solid #4f46e5; /* Darker purple for the spinning part */
+            border-radius: 50%;
+            width: 1.5rem; /* Size of the spinner */
+            height: 1.5rem;
+            animation: spin 1s linear infinite; /* Apply the spinning animation */
+            vertical-align: middle; /* Align with text */
+            display: inline-block; /* Ensure it respects margin-left */
+        }
+
+        /* Keyframes for the spinning animation */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Hide by default, show with JS */
+        #loadingIndicator, #versionsLoadingSpinner {
+            display: none;
+        }
+        /* Flex container for the button and spinner */
+        .button-and-spinner-container {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* Center horizontally */
+            width: 100%; /* Take full width */
+            margin-top: 1.5rem; /* Adjust margin as needed */
+            height: 2.5rem; /* Match button height for smooth transition */
         }
     </style>
 </head>
@@ -392,15 +422,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" id="projectNameDisplay" readonly>
                 <input type="hidden" id="hiddenProjectInput" name="project">
             </div>
-            <button type="submit">Run</button>
+            <div class="button-and-spinner-container">
+                <button type="submit" id="runButton">Run</button>
+                <div id="runButtonSpinner" class="spinner" style="display: none;"></div>
+            </div>
         </form>
 
         <div id="message" class="hidden"></div>
 
         <div class="section-separator">
             <h2 class="text-xl font-bold mb-2 text-gray-700">Latest Versions</h2>
-            <div id="versionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <p id="initialLoadingMessage" class="text-gray-600 col-span-full">Loading versions...</p>
+            <div id="versionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 center">
+                <div id="versionsLoadingSpinner" class="spinner mx-auto my-4"></div>
             </div>
         </div>
 
@@ -422,22 +455,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         const defaultProjectName = "<?php echo $default_project; ?>";
-        const additionalInfoGistUrl = "https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/README.md";
+        const additionalInfoGistUrl = "https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/README.md";
 
         const projectNameDisplay = document.getElementById('projectNameDisplay');
         const hiddenProjectInput = document.getElementById('hiddenProjectInput');
         const updateForm = document.getElementById('updateForm');
+        const runButton = document.getElementById('runButton');
+        const runButtonSpinner = document.getElementById('runButtonSpinner'); // Get the new spinner for the run button
         const messageDiv = document.getElementById('message');
         const versionsContainer = document.getElementById('versionsContainer');
-        const initialLoadingMessage = document.getElementById('initialLoadingMessage');
+        const versionsLoadingSpinner = document.getElementById('versionsLoadingSpinner');
         const additionalInfoContent = document.getElementById('additionalInfoContent');
 
         projectNameDisplay.value = defaultProjectName;
         hiddenProjectInput.value = defaultProjectName;
 
         async function displayAllVersions() {
-            versionsContainer.innerHTML = '';
-            versionsContainer.appendChild(initialLoadingMessage);
+            versionsContainer.innerHTML = ''; // Clear previous content
+            versionsContainer.appendChild(versionsLoadingSpinner); // Add spinner
+            versionsLoadingSpinner.style.display = 'block'; // Show spinner
 
             try {
                 const response = await fetch(window.location.href + '?action=get_versions');
@@ -446,7 +482,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 const allLatestVersions = await response.json();
 
-                versionsContainer.innerHTML = '';
+                versionsContainer.innerHTML = ''; // Clear spinner
+                versionsLoadingSpinner.style.display = 'none'; // Hide spinner
 
                 if (Object.keys(allLatestVersions).length === 0) {
                     versionsContainer.innerHTML = '<p class="text-gray-600 col-span-full">No version information available.</p>';
@@ -470,6 +507,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (error) {
                 console.error('Error loading all versions:', error);
                 versionsContainer.innerHTML = '<p class="text-red-600 col-span-full">Error loading version information. Please try again.</p>';
+                versionsLoadingSpinner.style.display = 'none'; // Ensure spinner is hidden on error
             }
         }
 
@@ -481,7 +519,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const markdownText = await response.text();
-                // Use marked.js to convert Markdown to HTML
                 additionalInfoContent.innerHTML = marked.parse(markdownText);
             } catch (error) {
                 console.error('Error loading additional information:', error);
@@ -492,7 +529,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         document.addEventListener('DOMContentLoaded', () => {
             displayAllVersions();
-            fetchAdditionalInfo(); // Call the new function to load additional info
+            fetchAdditionalInfo();
         });
 
         updateForm.addEventListener('submit', async function(event) {
@@ -502,9 +539,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             messageDiv.classList.remove('message-success', 'message-error');
             messageDiv.textContent = '';
 
+            // Hide run button and show spinner
+            runButton.style.display = 'none';
+            runButtonSpinner.style.display = 'inline-block';
+
             const projectToUpdate = hiddenProjectInput.value;
             if (!projectToUpdate) {
                 showMessage('No project found to update. Please check config.php', 'error');
+                runButton.style.display = 'block'; // Show button again
+                runButtonSpinner.style.display = 'none'; // Hide spinner
                 return;
             }
 
@@ -517,7 +560,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     body: `project=${encodeURIComponent(projectToUpdate)}`
                 });
 
-                const result = await response.json(); // Expect JSON response
+                const result = await response.json();
 
                 if (response.ok) {
                     if (result.status === 'success') {
@@ -525,18 +568,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else if (result.status === 'error') {
                         showMessage(result.message, 'error');
                     } else {
-                        // Fallback for unexpected but successful response (shouldn't happen with JSON status)
                         showMessage('Update complete, but response is unclear. Please check logs.', 'success');
                     }
                 } else {
-                    // Handle HTTP errors (e.g., 404, 500)
-                    // result.message might not exist if it's a raw HTTP error, so handle gracefully
                     showMessage(`Server error: ${response.status} ${response.statusText}\n${result.message || ''}`, 'error');
                 }
 
             } catch (error) {
                 console.error('Error sending request:', error);
                 showMessage(`Could not connect to server: ${error.message}`, 'error');
+            } finally {
+                // Hide spinner and show run button
+                runButton.style.display = 'block';
+                runButtonSpinner.style.display = 'none';
             }
         });
 
