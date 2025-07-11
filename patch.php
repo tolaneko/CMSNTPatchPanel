@@ -21,10 +21,10 @@ if (file_exists('config.php')) {
 // Master map of function names to their Gist URLs
 // This map stores the actual Gist URLs for each function.
 const FUNCTION_GIST_MAP = [
-    'checkAddonLicense' => 'https://gist.githubusercontent.com/maihuybao/5caf76bc3644cfbe88390a539904b218/raw/checkAddonLicense.php',
-    'CMSNT_check_license' => 'https://gist.githubusercontent.com/maihuybao/5caf76bc3644cfbe88390a539904b218/raw/CMSNT_check_license.php',
-    'checkAddon' => 'https://gist.githubusercontent.com/maihuybao/5caf76bc3644cfbe88390a539904b218/raw/checkAddon.php',
-    'feature_enabled' => 'https://gist.githubusercontent.com/maihuybao/5caf76bc3644cfbe88390a539904b218/raw/feature_enabled.php',
+    'checkAddonLicense' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/checkAddonLicense.php',
+    'CMSNT_check_license' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/CMSNT_check_license.php',
+    'checkAddon' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/checkAddon.php',
+    'feature_enabled' => 'https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/functions/feature_enabled.php',
     // Add other function Gist URLs here as needed
 ];
 
@@ -422,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         const defaultProjectName = "<?php echo $default_project; ?>";
-        const additionalInfoGistUrl = "https://gist.githubusercontent.com/maihuybao/5caf76bc3644cfbe88390a539904b218/raw/README.md";
+        const additionalInfoGistUrl = "https://raw.githubusercontent.com/maihuybao/CMSNTPatchPanel/refs/heads/main/README.md";
 
         const projectNameDisplay = document.getElementById('projectNameDisplay');
         const hiddenProjectInput = document.getElementById('hiddenProjectInput');
