@@ -3,33 +3,15 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Path to your config.php file
-// This file is expected to contain a $config array with a 'project' key.
-// Example config.php:
-// <?php
-// $config = [
-//     'project' => 'SHOPCLONE7_ENCRYPTION',
-// ];
-// ? >
-if (file_exists('config.php')) {
-    require_once __DIR__ . '/config.php';
-    $flag_load_config = true;
-} else {
-    $flag_load_config = false;
-}
-$default_project = "UNSUPPORTED_PROJECT"; // Default project if config.php is not found
 // Master map of function names to their Gist URLs
-// This map stores the actual Gist URLs for each function.
 const FUNCTION_GIST_MAP = [
     'checkAddonLicense' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/checkAddonLicense.php',
     'CMSNT_check_license' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/CMSNT_check_license.php',
     'checkAddon' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/checkAddon.php',
     'feature_enabled' => 'https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/functions/feature_enabled.php',
-    // Add other function Gist URLs here as needed
 ];
 
 // Define projects with their paths, version APIs, and functions to update
-// This configuration dictates which file to patch and which functions within that file to update.
 $projects_config = [
     'SHOPCLONE7_ENCRYPTION' => [
         'path'=>'libs/helper.php',
@@ -78,31 +60,43 @@ $projects_config = [
 // List of projects that use the baocms.net API format for version data
 $baocms_list = ["SMMPANELV1", "SHOPNICK3"];
 
-// Determine the default project based on config.php or file existence
-if (!$flag_load_config) {
-    // If config.php doesn't exist, try to guess the project based on file paths
-    if(file_exists($projects_config['SHOPNICK3']['path'])) {
+// Initialize default project and version
+$default_project = "UNSUPPORTED_PROJECT";
+$default_version = "N/A";
+
+// Try to read config.php content and extract values using regex
+if (file_exists('config.php')) {
+    $config_file_content = file_get_contents('config.php');
+    if ($config_file_content !== false) {
+        // Regex to find 'project' value
+        if (preg_match("/'project'\s*=>\s*'(.*?)'/", $config_file_content, $matches_project)) {
+            $default_project = $matches_project[1];
+        }
+
+        // Regex to find 'version' value
+        if (preg_match("/'version'\s*=>\s*'(.*?)'/", $config_file_content, $matches_version)) {
+            $default_version = $matches_version[1];
+        }
+    }
+}
+
+// Fallback for default_project if not found in config.php or unsupported
+if ($default_project === "UNSUPPORTED_PROJECT") {
+    if(file_exists($projects_config['SHOPNICK3']['path'] ?? '')) {
         $default_project = 'SHOPNICK3';
-    } else if(file_exists($projects_config['SMMPANELV1']['path'])) {
+    } else if(file_exists($projects_config['SMMPANELV1']['path'] ?? '')) {
         $default_project = 'SMMPANELV1';
     }
-} else {
-    // If config.php exists, use the project defined there, with a fallback
-    $default_project = $config['project'] ?? 'UNSUPPORTED_PROJECT';
 }
 
 // API logic to fetch all versions and output JSON
-// This block executes if the 'action' GET parameter is 'get_versions'
 if (isset($_GET['action']) && $_GET['action'] === 'get_versions') {
-    header('Content-Type: application/json'); // Set content type to JSON
+    header('Content-Type: application/json');
     $latest_versions = [];
     foreach ($projects_config as $project_name => $details) {
-        // Use the specific version_api_url defined in the project's configuration
         $version_api_url = $details['version_api_url'];
-        // Attempt to fetch version data, suppress warnings for network errors
         $version_data = @file_get_contents($version_api_url);
         
-        // Special handling for baocms.net API responses which are JSON
         if (in_array($project_name, $baocms_list)) {
             $decoded_data = json_decode($version_data, true);
             $version_name = $decoded_data['data']['version_name'] ?? 'N/A';
@@ -112,47 +106,38 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_versions') {
         $latest_versions[$project_name] = ($version_data !== false) ? trim($version_data) : 'N/A';
     }
     
-    echo json_encode($latest_versions); // Output JSON data
-    exit; // Terminate script after API response
+    echo json_encode($latest_versions);
+    exit;
 }
 
 // POST request (form submission)
-// This block executes if the request method is POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json'); // Set content type to JSON for POST responses
+    header('Content-Type: application/json');
 
-    // Get the project name directly from the determined default project
     $project_to_update = $_POST['project'] ?? $default_project;
 
-    // Validate the project against the defined projects configuration
     if (!isset($projects_config[$project_to_update])) {
         echo json_encode(['status' => 'error', 'message' => "Invalid or unsupported project."]);
         exit;
     }
 
-    // Get the file path and functions to update for the selected project
     $file_path = $projects_config[$project_to_update]['path'];
     $functions_to_replace = $projects_config[$project_to_update]['functions_to_update'];
 
-    // Function to replace a specific function within the code
     function replace_function($code, $function_name, $new_code) {
-        // Regex pattern to find the function definition
         $pattern = '/function\s+' . preg_quote($function_name) . '\s*\(.*?\)\s*\{.*?\n\}/s';
         if (preg_match($pattern, $code)) {
             return preg_replace($pattern, $new_code, $code);
         } else {
-            // Return a specific error message for function not found
             return "FUNCTION_NOT_FOUND: $function_name";
         }
     }
 
-    // Check if the file exists and is readable
     if (!file_exists($file_path) || !is_readable($file_path)) {
         echo json_encode(['status' => 'error', 'message' => "File '$file_path' does not exist or is not readable."]);
         exit;
     }
 
-    // Read the content of the target file
     $code = file_get_contents($file_path);
     if ($code === false) {
         echo json_encode(['status' => 'error', 'message' => "Could not read file content for '$file_path'."]);
@@ -160,15 +145,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $errors = [];
-    // Perform replacements for each function specified for the project
     foreach ($functions_to_replace as $func_name) {
-        // Look up the Gist URL for the function from the master map
         if (isset(FUNCTION_GIST_MAP[$func_name])) {
             $url = FUNCTION_GIST_MAP[$func_name];
-            $new_code = @file_get_contents($url); // Fetch new code from Gist
+            $new_code = @file_get_contents($url);
             if ($new_code === false) {
                 $errors[] = "Could not download new code for function '$func_name' from URL '$url'.";
-                continue; // Skip to the next function if Gist fetch fails
+                continue;
             }
             $result_code = replace_function($code, $func_name, $new_code);
             if (strpos($result_code, 'FUNCTION_NOT_FOUND:') === 0) {
@@ -181,7 +164,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Write the modified content back to the file
     if (file_put_contents($file_path, $code) === false) {
         $errors[] = "Could not write content to file '$file_path'. Please check write permissions.";
     }
@@ -191,12 +173,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         echo json_encode(['status' => 'error', 'message' => "Update completed with errors: " . implode(" ", $errors)]);
     }
-    exit; // Terminate PHP script after processing POST request
+    exit;
 }
 
 // Default GET request (initial page load)
-// This block executes when the page is first loaded in the browser without specific GET/POST parameters
-// $default_project is already determined above.
 ?>
 
 <!DOCTYPE html>
@@ -421,6 +401,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <label for="projectNameDisplay" class="sr-only">Project Name:</label>
                 <input type="text" id="projectNameDisplay" readonly>
                 <input type="hidden" id="hiddenProjectInput" name="project">
+                <input type="hidden" id="hiddenVersionInput" value="<?php echo $default_version; ?>">
             </div>
             <div class="button-and-spinner-container">
                 <button type="submit" id="runButton">Run</button>
@@ -432,7 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="section-separator">
             <h2 class="text-xl font-bold mb-2 text-gray-700">Latest Versions</h2>
-            <div id="versionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4 center">
+            <div id="versionsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div id="versionsLoadingSpinner" class="spinner mx-auto my-4"></div>
             </div>
         </div>
@@ -455,13 +436,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <script>
         const defaultProjectName = "<?php echo $default_project; ?>";
+        const defaultProjectVersion = document.getElementById('hiddenVersionInput').value; // Get the default version
         const additionalInfoGistUrl = "https://raw.githubusercontent.com/CMSNTSourceCode/CMSNTPatchPanel/refs/heads/main/README.md";
 
         const projectNameDisplay = document.getElementById('projectNameDisplay');
         const hiddenProjectInput = document.getElementById('hiddenProjectInput');
         const updateForm = document.getElementById('updateForm');
         const runButton = document.getElementById('runButton');
-        const runButtonSpinner = document.getElementById('runButtonSpinner'); // Get the new spinner for the run button
+        const runButtonSpinner = document.getElementById('runButtonSpinner');
         const messageDiv = document.getElementById('message');
         const versionsContainer = document.getElementById('versionsContainer');
         const versionsLoadingSpinner = document.getElementById('versionsLoadingSpinner');
@@ -471,9 +453,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         hiddenProjectInput.value = defaultProjectName;
 
         async function displayAllVersions() {
-            versionsContainer.innerHTML = ''; // Clear previous content
-            versionsContainer.appendChild(versionsLoadingSpinner); // Add spinner
-            versionsLoadingSpinner.style.display = 'block'; // Show spinner
+            versionsContainer.innerHTML = '';
+            versionsContainer.appendChild(versionsLoadingSpinner);
+            versionsLoadingSpinner.style.display = 'block';
 
             try {
                 const response = await fetch(window.location.href + '?action=get_versions');
@@ -482,8 +464,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 const allLatestVersions = await response.json();
 
-                versionsContainer.innerHTML = ''; // Clear spinner
-                versionsLoadingSpinner.style.display = 'none'; // Hide spinner
+                versionsContainer.innerHTML = '';
+                versionsLoadingSpinner.style.display = 'none';
 
                 if (Object.keys(allLatestVersions).length === 0) {
                     versionsContainer.innerHTML = '<p class="text-gray-600 col-span-full">No version information available.</p>';
@@ -491,23 +473,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 for (const projectName in allLatestVersions) {
-                    const version = allLatestVersions[projectName];
+                    const latestVersion = allLatestVersions[projectName];
                     const versionBox = document.createElement('div');
                     versionBox.classList.add(
                         'bg-indigo-50', 'p-3', 'rounded-lg', 'shadow-sm',
                         'flex', 'flex-col', 'items-start', 'text-left',
                         'border', 'border-indigo-200'
                     );
+
+                    let versionText = `Version: <span class="font-bold">${latestVersion}</span>`;
+                    // If this is the configured project and a version is available from config.php
+                    if (projectName === defaultProjectName && defaultProjectVersion !== 'N/A') {
+                        versionText = `Version: <span class="font-bold">${latestVersion}</span> (Installed: <span class="font-bold text-blue-700">${defaultProjectVersion}</span>)`;
+                        // Optionally, add a class to highlight the default project's box
+                        versionBox.classList.add('border-indigo-500', 'ring-2', 'ring-indigo-300');
+                    }
+
                     versionBox.innerHTML = `
                         <p class="font-semibold text-indigo-800 text-lg">${projectName}</p>
-                        <p class="text-indigo-600 text-base">Version: <span class="font-bold">${version}</span></p>
+                        <p class="text-indigo-600 text-base">${versionText}</p>
                     `;
                     versionsContainer.appendChild(versionBox);
                 }
             } catch (error) {
                 console.error('Error loading all versions:', error);
                 versionsContainer.innerHTML = '<p class="text-red-600 col-span-full">Error loading version information. Please try again.</p>';
-                versionsLoadingSpinner.style.display = 'none'; // Ensure spinner is hidden on error
+                versionsLoadingSpinner.style.display = 'none';
             }
         }
 
