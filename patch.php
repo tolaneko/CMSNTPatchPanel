@@ -64,6 +64,61 @@ $baocms_list = ["SMMPANELV1", "SHOPNICK3"];
 $default_project = "UNSUPPORTED_PROJECT";
 $default_version = "N/A";
 
+// Configuration management functions
+function loadPatchConfig() {
+    $configFile = 'patch_config.json';
+    if (file_exists($configFile)) {
+        $configContent = file_get_contents($configFile);
+        return json_decode($configContent, true);
+    }
+    return createDefaultConfig();
+}
+
+function savePatchConfig($config) {
+    $configFile = 'patch_config.json';
+    $configJson = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    return file_put_contents($configFile, $configJson);
+}
+
+function createDefaultConfig() {
+    global $projects_config, $default_project, $default_version;
+    
+    $config = [
+        "current_project" => $default_project,
+        "current_version" => $default_version,
+        "last_check" => null,
+        "last_update" => null,
+        "auto_patch_enabled" => true,
+        "projects" => []
+    ];
+    
+    foreach ($projects_config as $project_name => $details) {
+        $config['projects'][$project_name] = [
+            "installed_version" => ($project_name === $default_project) ? $default_version : "N/A",
+            "latest_version" => "N/A",
+            "last_patched" => null
+        ];
+    }
+    
+    return $config;
+}
+
+function needsUpdate($project_name, $config) {
+    if (!isset($config['projects'][$project_name])) {
+        return false;
+    }
+    
+    $project = $config['projects'][$project_name];
+    $installed = $project['installed_version'];
+    $latest = $project['latest_version'];
+    
+    if ($installed === 'N/A' || $latest === 'N/A') {
+        return false;
+    }
+    
+    return $installed !== $latest;
+}
+
 // Try to read config.php content and extract values using regex
 if (file_exists('config.php')) {
     $config_file_content = file_get_contents('config.php');
@@ -80,6 +135,18 @@ if (file_exists('config.php')) {
     }
 }
 
+// Load and update patch configuration
+$patchConfig = loadPatchConfig();
+$patchConfig['current_project'] = $default_project;
+$patchConfig['current_version'] = $default_version;
+
+// Update installed version for current project
+if (isset($patchConfig['projects'][$default_project])) {
+    $patchConfig['projects'][$default_project]['installed_version'] = $default_version;
+}
+
+savePatchConfig($patchConfig);
+
 // Fallback for default_project if not found in config.php or unsupported
 if ($default_project === "UNSUPPORTED_PROJECT") {
     if(file_exists($projects_config['SHOPNICK3']['path'] ?? '')) {
@@ -93,6 +160,7 @@ if ($default_project === "UNSUPPORTED_PROJECT") {
 if (isset($_GET['action']) && $_GET['action'] === 'get_versions') {
     header('Content-Type: application/json');
     $latest_versions = [];
+    
     foreach ($projects_config as $project_name => $details) {
         $version_api_url = $details['version_api_url'];
         $version_data = @file_get_contents($version_api_url);
@@ -103,10 +171,117 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_versions') {
             $version_code = $decoded_data['data']['version_code'] ?? 'N/A';
             $version_data = $version_name . ' (' . $version_code . ')';
         }
-        $latest_versions[$project_name] = ($version_data !== false) ? trim($version_data) : 'N/A';
+        $latest_version = ($version_data !== false) ? trim($version_data) : 'N/A';
+        $latest_versions[$project_name] = $latest_version;
+        
+        // Update JSON config with latest version
+        if (isset($patchConfig['projects'][$project_name])) {
+            $patchConfig['projects'][$project_name]['latest_version'] = $latest_version;
+        }
     }
     
+    // Update last check time and save config
+    $patchConfig['last_check'] = date('Y-m-d H:i:s');
+    savePatchConfig($patchConfig);
+    
     echo json_encode($latest_versions);
+    exit;
+}
+
+// API for auto patch cronjob - main entry point for automation
+if (isset($_GET['action']) && $_GET['action'] === 'auto_patch') {
+    header('Content-Type: application/json');
+    
+    $config = loadPatchConfig();
+    $results = [];
+    
+    if (!$config['auto_patch_enabled']) {
+        echo json_encode(['status' => 'skipped', 'message' => 'Auto patch is disabled']);
+        exit;
+    }
+    
+    // Update current project info
+    $config['current_project'] = $default_project;
+    $config['current_version'] = $default_version;
+    if (isset($config['projects'][$default_project])) {
+        $config['projects'][$default_project]['installed_version'] = $default_version;
+    }
+    
+    // Check latest versions
+    foreach ($projects_config as $project_name => $details) {
+        $version_api_url = $details['version_api_url'];
+        $version_data = @file_get_contents($version_api_url);
+        
+        if ($version_data !== false) {
+            if (in_array($project_name, $baocms_list)) {
+                $decoded_data = json_decode($version_data, true);
+                $version_name = $decoded_data['data']['version_name'] ?? 'N/A';
+                $version_code = $decoded_data['data']['version_code'] ?? 'N/A';
+                $latest_version = $version_name . ' (' . $version_code . ')';
+            } else {
+                $latest_version = trim($version_data);
+            }
+            $config['projects'][$project_name]['latest_version'] = $latest_version;
+        }
+    }
+    
+    $config['last_check'] = date('Y-m-d H:i:s');
+    
+    // Check if current project needs update
+    $current_project = $config['current_project'];
+    if ($current_project !== 'UNSUPPORTED_PROJECT') {
+        if (needsUpdate($current_project, $config)) {
+            // Perform auto patch using existing POST logic
+            $file_path = $projects_config[$current_project]['path'];
+            $functions_to_replace = $projects_config[$current_project]['functions_to_update'];
+            
+            if (file_exists($file_path) && is_readable($file_path)) {
+                $code = file_get_contents($file_path);
+                if ($code !== false) {
+                    $errors = [];
+                    foreach ($functions_to_replace as $func_name) {
+                        if (isset(FUNCTION_GIST_MAP[$func_name])) {
+                            $url = FUNCTION_GIST_MAP[$func_name];
+                            $new_code = @file_get_contents($url);
+                            if ($new_code !== false) {
+                                $pattern = '/function\s+' . preg_quote($func_name) . '\s*\(.*?\)\s*\{.*?\n\}/s';
+                                if (preg_match($pattern, $code)) {
+                                    $code = preg_replace($pattern, $new_code, $code);
+                                } else {
+                                    $errors[] = "Function '$func_name' not found";
+                                }
+                            } else {
+                                $errors[] = "Could not download '$func_name'";
+                            }
+                        }
+                    }
+                    
+                    if (empty($errors) && file_put_contents($file_path, $code) !== false) {
+                        $config['projects'][$current_project]['last_patched'] = date('Y-m-d H:i:s');
+                        $config['projects'][$current_project]['installed_version'] = $config['projects'][$current_project]['latest_version'];
+                        $config['last_update'] = date('Y-m-d H:i:s');
+                        $results['message'] = "Successfully patched $current_project";
+                    } else {
+                        $results['message'] = "Patch failed: " . implode(", ", $errors);
+                    }
+                }
+            }
+        } else {
+            $results['message'] = "$current_project is up to date";
+        }
+    } else {
+        $results['message'] = "No supported project detected";
+    }
+    
+    // Save updated config
+    savePatchConfig($config);
+    
+    echo json_encode([
+        'status' => 'completed',
+        'current_project' => $current_project,
+        'results' => $results,
+        'timestamp' => date('Y-m-d H:i:s')
+    ]);
     exit;
 }
 
@@ -169,6 +344,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors)) {
+        // Update JSON config after successful patch
+        $currentTime = date('Y-m-d H:i:s');
+        $patchConfig = loadPatchConfig();
+        if (isset($patchConfig['projects'][$project_to_update])) {
+            $patchConfig['projects'][$project_to_update]['last_patched'] = $currentTime;
+            $patchConfig['projects'][$project_to_update]['installed_version'] = $patchConfig['projects'][$project_to_update]['latest_version'];
+            $patchConfig['last_update'] = $currentTime;
+            savePatchConfig($patchConfig);
+        }
+        
         echo json_encode(['status' => 'success', 'message' => "All functions for project '$project_to_update' have been replaced successfully."]);
     } else {
         echo json_encode(['status' => 'error', 'message' => "Update completed with errors: " . implode(" ", $errors)]);
@@ -410,6 +595,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
 
         <div id="message" class="hidden"></div>
+
+        <div class="section-separator">
+            <h2 class="text-xl font-bold mb-2 text-gray-700">Cronjob Setup</h2>
+            <div class="bg-gray-50 p-4 rounded-lg text-left">
+                <h3 class="font-semibold mb-2">Auto Patch URL for Cronjob:</h3>
+                <div class="bg-white p-3 rounded border mb-4">
+                    <code class="block text-sm bg-gray-100 p-2 rounded">http://<?php echo $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']; ?>?action=auto_patch</code>
+                </div>
+            </div>
+        </div>
 
         <div class="section-separator">
             <h2 class="text-xl font-bold mb-2 text-gray-700">Latest Versions</h2>
