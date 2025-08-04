@@ -15,6 +15,7 @@ const FUNCTION_GIST_MAP = [
 $projects_config = [
     'SHOPCLONE7_ENCRYPTION' => [
         'path'=>'libs/helper.php',
+        'path_admin_home'=>'/views/admin/home.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SHOPCLONE7_ENCRYPTION',
         'functions_to_update' => [
             'checkAddonLicense',
@@ -24,6 +25,7 @@ $projects_config = [
     'SMMPANEL2_ENCRYPTION' => [
         'path'=>'libs/helper.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SMMPANEL2_ENCRYPTION',
+        'path_admin_home'=>'/views/admin/home.php',
         'functions_to_update' => [
             'checkAddonLicense',
             'CMSNT_check_license'
@@ -31,6 +33,7 @@ $projects_config = [
     ],
     'SHOPCLONE6' => [
         'path'=>'libs/helper.php',
+        'path_admin_home'=>'/views/admin/home.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SHOPCLONE6',
         'functions_to_update' => [
             'CMSNT_check_license',
@@ -39,6 +42,7 @@ $projects_config = [
     ],
     'SMMPANELV1' => [
         'path'=>'../app/Helpers/Funcs.php',
+        'path_admin_home'=>'../resources/views/admin/dashboard.blade.php',
         'version_api_url' => 'https://updates.baocms.net/smmpanel-v1/index.php?route=check-update&hash=e01cc7e1e3957ff1cec61d5de0b8c964&secret=e01cc7e1e3957ff1cec61d5de0b8c964',
         'functions_to_update' => [
             'CMSNT_check_license',
@@ -47,6 +51,7 @@ $projects_config = [
     ],
     'SHOPNICK3' => [
         'path'=>'../app/Helpers/Helper2.php',
+        'path_admin_home'=>'../resources/views/admin/dashboard.blade.php',
         'version_api_url' => 'https://updates.baocms.net/shopnickv3/index.php?route=check-update&hash=e01cc7e1e3957ff1cec61d5de0b8c964&secret=e01cc7e1e3957ff1cec61d5de0b8c964',
         'functions_to_update' => [
             'CMSNT_check_license',
@@ -131,6 +136,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['a
         }
     }
 
+    function patch_admin_home($project_to_update, $projects_config) {
+        if (!isset($projects_config[$project_to_update]['path_admin_home'])) {
+            return ['success' => true, 'message' => 'path_admin_home not configured for this project'];
+        }
+
+        $admin_home_path = $projects_config[$project_to_update]['path_admin_home'];
+        
+        if (!file_exists($admin_home_path) || !is_readable($admin_home_path)) {
+            return ['success' => false, 'message' => "Admin home file does not exist or is not readable"];
+        }
+
+        $admin_content = file_get_contents($admin_home_path);
+        if ($admin_content === false) {
+            return ['success' => false, 'message' => "Could not read admin home file content"];
+        }
+
+        // Check if already patched
+        if (strpos($admin_content, 'Nulled By <a href="https://github.com/CMSNTSourceCode"') !== false) {
+            return ['success' => true, 'message' => 'Admin home already patched'];
+        }
+
+        // Try both patterns
+        $patterns = [
+            "<?=\$config['version'];?></span>",
+            "{{ currentVersion() }}</strong>"
+        ];
+        
+        $patched = false;
+        foreach ($patterns as $search) {
+            if (strpos($admin_content, $search) !== false) {
+                // Determine closing tag based on pattern
+                if (strpos($search, '</span>') !== false) {
+                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://github.com/CMSNTSourceCode" target="_blank" style="color: #3498db; text-decoration: underline;">CMSNTSourceCode</a></span></span>';
+                } else {
+                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://github.com/CMSNTSourceCode" target="_blank" style="color: #3498db; text-decoration: underline;">CMSNTSourceCode</a></span></strong>';
+                }
+                $admin_content = str_replace($search, $replace, $admin_content);
+                $patched = true;
+                break;
+            }
+        }
+        
+        if ($patched) {
+            if (file_put_contents($admin_home_path, $admin_content) !== false) {
+                return ['success' => true, 'message' => 'Admin home patched successfully'];
+            } else {
+                return ['success' => false, 'message' => 'Could not write to admin home file'];
+            }
+        } else {
+            return ['success' => false, 'message' => 'Version pattern not found in admin home file'];
+        }
+    }
+
     if (!file_exists($file_path) || !is_readable($file_path)) {
         echo json_encode(['status' => 'error', 'message' => "File '$file_path' does not exist or is not readable."]);
         exit;
@@ -166,8 +224,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['a
         $errors[] = "Could not write content to file '$file_path'. Please check write permissions.";
     }
 
+    // Patch admin home file
+    $admin_patch_result = patch_admin_home($project_to_update, $projects_config);
+    if (!$admin_patch_result['success'] && $admin_patch_result['message'] !== 'path_admin_home not configured for this project') {
+        $errors[] = "Admin home patch: " . $admin_patch_result['message'];
+    }
+
     if (empty($errors)) {
-        echo json_encode(['status' => 'success', 'message' => "All functions for project '$project_to_update' have been replaced successfully."]);
+        $success_message = "All functions for project '$project_to_update' have been replaced successfully.";
+        if ($admin_patch_result['success'] && $admin_patch_result['message'] === 'Admin home patched successfully') {
+            $success_message .= " Admin home also patched.";
+        }
+        echo json_encode(['status' => 'success', 'message' => $success_message]);
     } else {
         echo json_encode(['status' => 'error', 'message' => "Update completed with errors: " . implode(" ", $errors)]);
     }
