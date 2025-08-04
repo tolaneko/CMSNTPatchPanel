@@ -26,11 +26,31 @@ Quá trình này giúp bạn dễ dàng duy trì và điều chỉnh các sản 
     - Đối với các dự án **SMMPANELV1**, **SHOPNICK3** (dự án Laravel): Giải nén tệp patch.php vào thư mục **/public** của sản phẩm CMSNT của bạn.
 2. **Tiến hành chạy bằng cách nhấp vào nút Run**
 
+## **4\. Tính năng Cronjob tự động**
+
+CMSNT Patch Panel hỗ trợ tính năng **cronjob** để tự động thực hiện patch mà không cần can thiệp thủ công.
+
+### **URL Cronjob:**
+```
+https://yourdomain.com/patch.php?action=cron
+```
+
+URL này sẽ tự động thực hiện patch cho dự án đã được cấu hình trong `config.php` và trả về JSON response.
+
+### **Ví dụ sử dụng:**
+```bash
+# Cronjob chạy mỗi 6 giờ
+0 */6 * * * curl -s "https://yourdomain.com/patch.php?action=cron" >/dev/null 2>&1
+```
+
 ## **5\. Lưu ý quan trọng**
 
 - **Sao lưu trước khi cập nhật:** Luôn sao lưu toàn bộ mã nguồn sản phẩm CMSNT của bạn trước khi chạy công cụ này. Mặc dù công cụ được thiết kế để hoạt động an toàn, nhưng việc sao lưu sẽ bảo vệ bạn khỏi mọi sự cố không mong muốn.
 - **Quyền truy cập Internet:** Máy chủ của bạn cần có quyền truy cập internet để tải mã nguồn các hàm từ Gist và kiểm tra phiên bản từ các API.
-- **Khắc phục sự cố:** Nếu bạn gặp lỗi, hãy kiểm tra thông báo trên giao diện. Nếu thông báo không rõ ràng, hãy kiểm tra nhật ký lỗi của máy chủ web (Apache/Nginx error logs) để biết thêm chi tiết.
+- **Bảo mật Cronjob:** Đảm bảo URL cronjob không bị lộ công khai hoặc bị crawl bởi search engines. Có thể thêm authentication hoặc IP whitelist nếu cần thiết.
+- **Tần suất Cronjob:** Không nên set cronjob chạy quá thường xuyên (dưới 1 giờ) để tránh gây tải cho server và các API CMSNT.
+- **Monitoring:** Thường xuyên kiểm tra log của cronjob để đảm bảo nó hoạt động đúng và phát hiện lỗi kịp thời.
+- **Khắc phục sự cố:** Nếu bạn gặp lỗi, hãy kiểm tra thông báo trên giao diện hoặc JSON response của cronjob. Nếu thông báo không rõ ràng, hãy kiểm tra nhật ký lỗi của máy chủ web (Apache/Nginx error logs) để biết thêm chi tiết.
 
 Chúc bạn sử dụng CMSNT Patch Panel hiệu quả!
 

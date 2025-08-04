@@ -18,7 +18,6 @@ $projects_config = [
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SHOPCLONE7_ENCRYPTION',
         'functions_to_update' => [
             'checkAddonLicense',
-            'checkAddon',
             'CMSNT_check_license'
         ],
     ],
@@ -27,7 +26,6 @@ $projects_config = [
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SMMPANEL2_ENCRYPTION',
         'functions_to_update' => [
             'checkAddonLicense',
-            'checkAddon',
             'CMSNT_check_license'
         ]
     ],
@@ -111,7 +109,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_versions') {
 }
 
 // POST request (form submission)
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['action'] === 'cron')) {
     header('Content-Type: application/json');
 
     $project_to_update = $_POST['project'] ?? $default_project;
