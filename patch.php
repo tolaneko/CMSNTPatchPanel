@@ -15,7 +15,7 @@ const FUNCTION_GIST_MAP = [
 $projects_config = [
     'SHOPCLONE7_ENCRYPTION' => [
         'path'=>'libs/helper.php',
-        'path_admin_home'=>'/views/admin/home.php',
+        'path_admin_home'=>'views/admin/home.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SHOPCLONE7_ENCRYPTION',
         'functions_to_update' => [
             'checkAddonLicense',
@@ -25,7 +25,7 @@ $projects_config = [
     'SMMPANEL2_ENCRYPTION' => [
         'path'=>'libs/helper.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SMMPANEL2_ENCRYPTION',
-        'path_admin_home'=>'/views/admin/home.php',
+        'path_admin_home'=>'views/admin/home.php',
         'functions_to_update' => [
             'checkAddonLicense',
             'CMSNT_check_license'
@@ -33,7 +33,7 @@ $projects_config = [
     ],
     'SHOPCLONE6' => [
         'path'=>'libs/helper.php',
-        'path_admin_home'=>'/views/admin/home.php',
+        'path_admin_home'=>'resources/views/admin/home.php',
         'version_api_url' => 'https://api.cmsnt.co/version.php?version=SHOPCLONE6',
         'functions_to_update' => [
             'CMSNT_check_license',
@@ -153,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['a
         }
 
         // Check if already patched
-        if (strpos($admin_content, 'Nulled By <a href="https://github.com/CMSNTSourceCode"') !== false) {
+        if (strpos($admin_content, 'Nulled By <a href="https://maihuybao.dev"') !== false) {
             return ['success' => true, 'message' => 'Admin home already patched'];
         }
 
@@ -168,9 +168,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['a
             if (strpos($admin_content, $search) !== false) {
                 // Determine closing tag based on pattern
                 if (strpos($search, '</span>') !== false) {
-                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://github.com/CMSNTSourceCode" target="_blank" style="color: #3498db; text-decoration: underline;">CMSNTSourceCode</a></span></span>';
+                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://maihuybao.dev" target="_blank" style="color: #3498db; text-decoration: underline;">maihuybao</a></span></span>';
                 } else {
-                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://github.com/CMSNTSourceCode" target="_blank" style="color: #3498db; text-decoration: underline;">CMSNTSourceCode</a></span></strong>';
+                    $replace = $search . ' - <span style="color: #e74c3c; font-weight: bold;">Nulled By <a href="https://maihuybao.dev" target="_blank" style="color: #3498db; text-decoration: underline;">maihuybao</a></span></strong>';
                 }
                 $admin_content = str_replace($search, $replace, $admin_content);
                 $patched = true;
