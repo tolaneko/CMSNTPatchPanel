@@ -54,4 +54,4 @@ URL này sẽ tự động thực hiện patch cho dự án đã được cấu 
 
 Chúc bạn sử dụng CMSNT Patch Panel hiệu quả!
 
-_Được phát triển bởi @Mo_Ho_Bo_
+_Được phát triển bởi @qqaassdd1231_
